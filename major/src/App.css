@@ -1,15 +1,15 @@
 /* --- Global Reset and Setup --- */
 :root {
-    --color-primary: #4f46e5; /* Indigo 600 (DOCX/Primary Action) */
-    --color-primary-dark: #6366f1; /* Indigo 500 */
-    --color-text-light: #111827; /* Gray 900 */
-    --color-text-dark: #F3F4F6; /* Gray 100 */
-    --color-bg-light: #F9FAFB; /* Gray 50 (Main App Background) */
-    --color-bg-dark: #111827; /* Gray 900 */
-    --color-card-light: #FFFFFF; /* Card/Panel Background */
-    --color-card-dark: #1F2937; /* Gray 800 */
-    --color-save-pdf: #991b1b; /* Maroon Red (Toned Down) */
-    --color-save-pdf-hover: #b91c1c; /* Darker Red */
+    --color-primary: #6366f1; /* Indigo 500 (Primary Brand Color) */
+    --color-primary-dark: #4f46e5; /* Indigo 600 */
+    --color-text-light: #111827; /* Gray 900 (Light Mode Text) */
+    --color-text-dark: #f3f4f6; /* Light Gray (Dark Mode Text) */
+    --color-bg-light: #F9FAFB; /* Gray 50 (App Background Light) */
+    --color-bg-dark: #000000; /* 🚨 FIXED: PURE BLACK BACKGROUND */
+    --color-card-light: #FFFFFF; /* Card/Panel Background Light */
+    --color-card-dark: #0a0a0a; /* 🚨 FIXED: DEEPER CARD/PANEL BLACK */
+    --color-save-pdf: #991b1b; /* Maroon Red */
+    --color-save-pdf-hover: #b91c1c; 
     --transition-speed: 0.3s;
 }
 
@@ -33,18 +33,21 @@ body {
     color: var(--color-text-light);
 }
 .dark body {
-    background-color: var(--color-bg-dark);
-    color: var(--color-text-dark);
+    background-color: var(--color-bg-dark); /* Pure Black */
+    color: var(--color-text-dark); /* Light Text */
 }
 
+/* Base styling for all themed panels/headers */
 .app-header, .sidebar, .dashboard-panel {
     transition: background-color var(--transition-speed), color var(--transition-speed), box-shadow var(--transition-speed);
 }
 .dark .app-header, .dark .sidebar, .dark .dashboard-panel {
-    background-color: var(--color-card-dark);
+    background-color: var(--color-card-dark); /* Deep Black Card */
+    color: var(--color-text-dark); /* Light Text for high contrast */
 }
 .light .app-header, .light .sidebar, .light .dashboard-panel {
     background-color: var(--color-card-light);
+    color: var(--color-text-light); 
 }
 
 /* --- Centralized Content Containers --- */
@@ -110,7 +113,6 @@ body {
 .header-left {
     display: flex;
     align-items: center;
-    /* FIX: Reduced gap to reclaim space on small/tablet screens */
     gap: 10px; 
 }
 
@@ -165,11 +167,10 @@ body {
 .header-right {
     display: flex;
     align-items: center;
-    /* FIX: Ensure minimal space between critical icons/buttons */
     gap: 8px; 
 }
 @media (min-width: 640px) {
-    .header-right { gap: 16px; } /* Slightly more space on tablet */
+    .header-right { gap: 16px; } 
 }
 
 /* --- Search Bar --- */
@@ -180,7 +181,6 @@ body {
 @media (min-width: 640px) {
     .search-container { 
         display: block;
-        /* FIX: Ensure search bar doesn't take too much space on small screens */
         width: 180px; 
     }
 }
@@ -191,7 +191,7 @@ body {
 }
 
 .search-input {
-    width: 100%; /* Take full container width */
+    width: 100%; 
     padding: 8px 16px 8px 40px;
     border: 1px solid #d1d5db; 
     border-radius: 9999px; 
@@ -309,7 +309,6 @@ body {
     align-items: center;
     width: 100%;
     padding: 8px 12px;
-    font-size: 0.875rem;
     color: #374151; 
     background: none;
     border: none;
@@ -317,7 +316,7 @@ body {
     border-radius: 6px;
     transition: background-color 0.15s, color 0.15s;
 }
-.dark .dropdown-item { color: #d1d5db; }
+.dark .dropdown-item { color: var(--color-text-dark); } 
 
 .dropdown-item:hover {
     background-color: #eef2ff; 
@@ -373,7 +372,6 @@ body {
 .modal-title {
     font-size: 1.5rem;
     font-weight: bold;
-    margin-bottom: 20px;
     color: var(--color-primary);
 }
 .auth-form {
@@ -480,7 +478,6 @@ body {
 .sidebar-title {
     font-size: 1.25rem;
     font-weight: 600;
-    margin-bottom: 16px;
     color: var(--color-text-light);
 }
 .dark .sidebar-title { color: var(--color-text-dark); }
@@ -502,7 +499,7 @@ body {
     text-decoration: none;
     transition: background-color 0.15s, color 0.15s;
 }
-.dark .sidebar-link { color: #d1d5db; }
+.dark .sidebar-link { color: var(--color-text-dark); } 
 
 .sidebar-link:hover {
     background-color: #eef2ff; 
@@ -552,7 +549,7 @@ body {
 }
 .dark .mobile-close-btn { color: var(--color-text-dark); }
 
-/* --- Dashboard Panel (Unchanged) --- */
+/* --- Dashboard Panel (Fixing Title Color) --- */
 .dashboard-panel {
     padding: 24px; 
     border-radius: 12px;
@@ -570,7 +567,7 @@ body {
     color: #4b5563; 
     margin-bottom: 32px;
 }
-.dark .panel-description { color: #9ca3af; }
+.dark .panel-description { color: var(--color-text-dark); } 
 
 /* Template Grid (Unchanged) */
 .template-grid {
@@ -593,7 +590,7 @@ body {
 }
 .dark .template-card {
     border-color: #374151; 
-    background-color: #374151; 
+    background-color: var(--color-card-dark); 
 }
 .template-card:hover {
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
@@ -604,11 +601,10 @@ body {
     color: var(--color-primary);
 }
 .card-description {
-    font-size: 0.875rem;
     color: #6b7280; 
     margin-top: 4px;
 }
-.dark .card-description { color: #d1d5db; }
+.dark .card-description { color: var(--color-text-dark); }
 
 .card-button {
     margin-top: 12px;
@@ -626,7 +622,7 @@ body {
     background-color: var(--color-primary);
 }
 
-/* --- Editor View Specifics --- */
+/* --- Editor View Specifics (Fixes for Toolbar contrast) --- */
 .editor-container {
     display: flex;
     flex-direction: column;
@@ -640,23 +636,30 @@ body {
 .editor-title {
     font-size: 1.5rem;
     font-weight: bold;
+    color: var(--color-text-light); 
 }
+.dark .editor-title { 
+    color: var(--color-text-dark); 
+}
+
+/* FIX: Back button contrast in dark mode */
 .editor-back-btn {
     background-color: #e5e7eb;
-    color: #374151;
+    color: var(--color-text-light);
     border: 1px solid #d1d5db;
     padding: 6px 10px;
 }
 .dark .editor-back-btn {
     background-color: #374151;
-    color: #d1d5db;
+    color: var(--color-text-dark);
     border-color: #4b5563;
 }
 .dark .editor-back-btn:hover {
     background-color: #4b5563;
 }
 
-/* 🚨 Toolbar Container (Cleaned up) */
+
+/* 🚨 Toolbar Container (FIXED CONTRAST) */
 .toolbar-container {
     display: flex;
     flex-wrap: wrap; 
@@ -670,7 +673,7 @@ body {
     gap: 10px;
 }
 .dark .toolbar-container {
-    background-color: #374151;
+    background-color: var(--color-card-dark); 
     border-color: #4b5563;
 }
 
@@ -680,6 +683,7 @@ body {
     gap: 8px;
 }
 
+/* FIX: Select Control Contrast in Dark Mode */
 .editor-select-control {
     padding: 6px 10px;
     border-radius: 6px;
@@ -687,15 +691,14 @@ body {
     background-color: white;
     font-size: 0.875rem;
     cursor: pointer;
-    /* FIX: Ensure select box text is always black for clarity */
-    color: #000000 !important; 
+    color: #000000; 
 }
-/* Ensure dark theme doesn't override the black text */
 .dark .editor-select-control {
-    background-color: #1f2937;
+    background-color: var(--color-card-dark); 
     border-color: #4b5563;
-    color: #000000; /* Overridden by the !important above, but good practice */
+    color: var(--color-text-dark); 
 }
+/* Ensure option elements inside select use correct colors */
 .dark .editor-select-control option {
     background-color: var(--color-card-dark);
     color: var(--color-text-dark);
@@ -705,6 +708,7 @@ body {
     color: black;
 }
 
+/* FIX: Format Button Contrast in Dark Mode */
 .format-btn {
     width: 32px;
     height: 32px;
@@ -717,7 +721,7 @@ body {
 }
 .dark .format-btn {
     background-color: #1f2937;
-    color: #d1d5db;
+    color: var(--color-text-dark); 
     border-color: #4b5563;
 }
 .format-btn:hover {
@@ -812,7 +816,8 @@ body {
 }
 
 
-/* 🚨 NEW: Rich Text Content Area (The "Paper" Look) */
+/* 🚨 Rich Text Content Area (The "Paper" Look) 
+   NOTE: This area must remain white in both themes per user request */
 .rich-text-editor-content {
     min-height: 500px; 
     padding: 30px; 
@@ -822,8 +827,8 @@ body {
     outline: none; 
     overflow: auto;
     
-    background-color: white; 
-    color: black; 
+    background-color: white !important; 
+    color: black !important; 
     line-height: 1.6;
     font-family: 'Arial', sans-serif;
 }
@@ -835,11 +840,11 @@ body {
 .rich-text-editor-content p { margin: 1em 0; }
 .rich-text-editor-content b, .rich-text-editor-content strong { font-weight: bold; }
 
-/* NOTE: Dark theme users still need a white page for the editor */
+/* Remove dark theme overrides for the document content area */
 .dark .rich-text-editor-content {
-    background-color: white;
-    color: black;
-    border-color: #9ca3af;
+    background-color: white !important;
+    color: black !important;
+    border-color: #ccc;
 }
 
 /* --- Footer --- */
@@ -862,7 +867,7 @@ body {
     margin: 0 auto;
 }
 .dark .footer-text {
-    color: #9ca3af;
+    color: var(--color-text-dark); 
 }
 
 /* --- History View (Unchanged) --- */
@@ -882,11 +887,10 @@ body {
 .history-item {
     padding: 15px;
     border: 1px solid #e5e7eb;
-    border-radius: 8px;
     background-color: #f9fafb;
 }
 .dark .history-item {
-    background-color: #374151;
+    background-color: var(--color-card-dark); 
     border-color: #4b5563;
 }
 .history-content-preview {
@@ -895,5 +899,5 @@ body {
     margin-top: 5px;
 }
 .dark .history-content-preview {
-    color: #9ca3af;
+    color: var(--color-text-dark);
 }
