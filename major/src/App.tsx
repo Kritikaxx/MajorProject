@@ -472,6 +472,12 @@ const TEMPLATES: Template[] = [
 
 
 const TemplateList: React.FC<TemplateListProps> = ({ onSelectTemplate, templates }) => (
+interface TemplateListProps {
+     templates: Template[];
+    onSelectTemplate: (template: Template) => void;
+}
+
+const TemplateList: React.FC<TemplateListProps> = ({ templates,  onSelectTemplate }) => (
     <div className="template-list-panel">
         <h2 className="panel-title">Available Templates</h2>
         <p className="panel-description">
@@ -705,6 +711,29 @@ function App() {
         setFilteredTemplates(results);
     };
 
+    const [isAuthModalVisible, setIsAuthModalVisible] = useState(false); // Modal state
+    const [activeView, setActiveView] = useState<ActiveView>('list'); // Dashboard view state
+    const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null); // Template state
+    const [historyData, setHistoryData] = useState<DocumentData[] | null>(null); // History state
+    // 🔍 Search state
+    const [searchQuery, setSearchQuery] = useState('');
+    const [filteredTemplates, setFilteredTemplates] = useState<Template[]>([]);
+
+    // 🔍 Function to handle search queries
+const handleSearch = (query: string) => {
+  setSearchQuery(query);
+
+  if (!query.trim()) {
+    setFilteredTemplates([]); // show all templates when empty
+    return;
+  }
+
+  const results = TEMPLATES.filter((template) =>
+    template.title.toLowerCase().includes(query.toLowerCase())
+  );
+
+  setFilteredTemplates(results);
+};
 
     useEffect(() => {
         const root = window.document.documentElement;
@@ -791,6 +820,12 @@ function App() {
                     templates={filteredTemplates} // Use filtered templates here
                 />
             );
+  <TemplateList
+    onSelectTemplate={handleSelectTemplate}
+    templates={filteredTemplates.length > 0 ? filteredTemplates : TEMPLATES}
+  />
+);
+
             break;
     }
 
@@ -852,6 +887,110 @@ function App() {
                     </section>
                 </div>
             </main>
+        </div>
+    );
+}
+
+// --- 8. UI COMPONENTS ---
+
+// Header (Updated to use isAuthenticated prop)
+interface HeaderProps {
+    theme: 'light' | 'dark';
+    onThemeToggle: () => void;
+    user: User | null | undefined; 
+    onSignOut: () => void;
+    onLoginClick: () => void;
+    isAuthenticated: boolean | undefined; 
+    searchQuery: string;                      // <-- add this line
+  onSearchChange: (query: string) => void;  // <-- add this line
+}
+const Header: React.FC<HeaderProps> = ({ theme,
+  onThemeToggle,
+  user,
+  onSignOut,
+  onLoginClick,
+  isAuthenticated,
+  searchQuery,
+  onSearchChange,}) => (
+    <header className={`app-header ${theme}-theme`}>
+        <div className="header-content-wrapper">
+            
+            <div className="header-left">
+                <div className="app-logo">UC</div>
+                <h1 className="app-title">University Doc Center</h1>
+            </div>
+
+            <div className="header-right">
+                <div className="search-container">
+                    <input
+                    type="search"
+                    placeholder="Search templates or documents..."
+                    className="search-input"
+                    value={searchQuery}
+                    onChange={(e) => onSearchChange(e.target.value)}
+                    />
+                    <Search className="search-icon" />
+                </div>
+                
+                <ThemeToggle theme={theme} onToggle={onThemeToggle} />
+                
+                {/* FIX: Conditional rendering to show EITHER the Button OR the Icon */}
+                {isAuthenticated ? (
+                    // 1. SHOW ONLY ICON IF AUTHENTICATED
+                    <ProfileMenu user={user} onSignOut={onSignOut} onLoginClick={onLoginClick}/>
+                ) : (
+                    // 2. SHOW ONLY BUTTON IF NOT AUTHENTICATED
+                    <button onClick={onLoginClick} className="login-signup-btn">
+                        Log In / Sign Up
+                    </button>
+                )}
+            </div>
+        </div>
+    </header>
+);
+
+// ProfileMenu (Updated to display user email)
+interface ProfileMenuProps {
+    user: User | null | undefined; 
+    onSignOut: () => void;
+    onLoginClick: () => void;
+}
+const ProfileMenu: React.FC<ProfileMenuProps> = ({ user, onSignOut, onLoginClick }) => {
+    const [isOpen, setIsOpen] = useState(false);
+
+    const toggleMenu = () => setIsOpen(!isOpen);
+
+    const handleAction = (action: 'login' | 'signup' | 'details' | 'logout') => {
+        setIsOpen(false);
+        switch (action) {
+            case 'login':
+            case 'signup':
+                onLoginClick(); 
+                break;
+            case 'details':
+                console.log("[ACTION] Simulating viewing user details.");
+                break;
+            case 'logout':
+                onSignOut();
+                break;
+        }
+    };
+
+    const UserAvatar = () => (
+        <button
+            onClick={toggleMenu}
+            className="user-avatar-btn"
+            aria-expanded={isOpen}
+            aria-label="User menu"
+        >
+            <UserIcon className="icon-sm" />
+        </button>
+    );
+
+    return (
+        <div className="profile-menu-container">
+            {/* The avatar button is now always rendered here if this component is used */}
+            <UserAvatar />
             
             <Footer />
         </div>
