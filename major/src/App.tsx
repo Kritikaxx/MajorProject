@@ -371,10 +371,11 @@ const TEMPLATES: Template[] = [
 ];
 
 interface TemplateListProps {
+     templates: Template[];
     onSelectTemplate: (template: Template) => void;
 }
 
-const TemplateList: React.FC<TemplateListProps> = ({ onSelectTemplate }) => (
+const TemplateList: React.FC<TemplateListProps> = ({ templates,  onSelectTemplate }) => (
     <div className="template-list-panel">
         <h2 className="panel-title">Available Templates</h2>
         <p className="panel-description">
@@ -382,7 +383,7 @@ const TemplateList: React.FC<TemplateListProps> = ({ onSelectTemplate }) => (
         </p>
         
         <div className="template-grid">
-            {TEMPLATES.map((card) => (
+            {templates.map((card) => (
                 <div key={card.id} className="template-card">
                     <h3 className="card-title">{card.title}</h3>
                     <p className="card-description">{card.description}</p>
@@ -406,6 +407,25 @@ function App() {
     const [activeView, setActiveView] = useState<ActiveView>('list'); // Dashboard view state
     const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null); // Template state
     const [historyData, setHistoryData] = useState<DocumentData[] | null>(null); // History state
+    // 🔍 Search state
+    const [searchQuery, setSearchQuery] = useState('');
+    const [filteredTemplates, setFilteredTemplates] = useState<Template[]>([]);
+
+    // 🔍 Function to handle search queries
+const handleSearch = (query: string) => {
+  setSearchQuery(query);
+
+  if (!query.trim()) {
+    setFilteredTemplates([]); // show all templates when empty
+    return;
+  }
+
+  const results = TEMPLATES.filter((template) =>
+    template.title.toLowerCase().includes(query.toLowerCase())
+  );
+
+  setFilteredTemplates(results);
+};
 
     // Theme logic (attaching dark class to body)
     useEffect(() => {
@@ -498,7 +518,13 @@ function App() {
             break;
         case 'list':
         default:
-            mainContent = <TemplateList onSelectTemplate={handleSelectTemplate} />;
+            mainContent = (
+  <TemplateList
+    onSelectTemplate={handleSelectTemplate}
+    templates={filteredTemplates.length > 0 ? filteredTemplates : TEMPLATES}
+  />
+);
+
             break;
     }
 
@@ -515,6 +541,8 @@ function App() {
                 onSignOut={handleSignOut} 
                 onLoginClick={() => setIsAuthModalVisible(true)} 
                 isAuthenticated={isAuthenticated} 
+                searchQuery={searchQuery}
+                onSearchChange={handleSearch}
             />
 
             {/* Auth Modal is rendered at the root level */}
@@ -570,8 +598,17 @@ interface HeaderProps {
     onSignOut: () => void;
     onLoginClick: () => void;
     isAuthenticated: boolean | undefined; 
+    searchQuery: string;                      // <-- add this line
+  onSearchChange: (query: string) => void;  // <-- add this line
 }
-const Header: React.FC<HeaderProps> = ({ theme, onThemeToggle, user, onSignOut, onLoginClick, isAuthenticated }) => (
+const Header: React.FC<HeaderProps> = ({ theme,
+  onThemeToggle,
+  user,
+  onSignOut,
+  onLoginClick,
+  isAuthenticated,
+  searchQuery,
+  onSearchChange,}) => (
     <header className={`app-header ${theme}-theme`}>
         <div className="header-content-wrapper">
             
@@ -582,7 +619,13 @@ const Header: React.FC<HeaderProps> = ({ theme, onThemeToggle, user, onSignOut, 
 
             <div className="header-right">
                 <div className="search-container">
-                    <input type="search" placeholder="Search templates or documents..." className="search-input"/>
+                    <input
+                    type="search"
+                    placeholder="Search templates or documents..."
+                    className="search-input"
+                    value={searchQuery}
+                    onChange={(e) => onSearchChange(e.target.value)}
+                    />
                     <Search className="search-icon" />
                 </div>
                 
