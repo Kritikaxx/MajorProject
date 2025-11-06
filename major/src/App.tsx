@@ -1,6 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { initializeApp } from 'firebase/app';
-// Use type-only imports for module types to satisfy strict TypeScript configs
 import type { User } from 'firebase/auth'; 
 import { 
     getAuth, 
@@ -8,21 +7,12 @@ import {
     signInWithCustomToken, 
     onAuthStateChanged, 
     signOut,
-    createUserWithEmailAndPassword, // For Sign Up
-    signInWithEmailAndPassword      // For Log In
+    createUserWithEmailAndPassword,
+    signInWithEmailAndPassword      
 } from 'firebase/auth';
-import type { Firestore } from 'firebase/firestore'; 
 import { 
     getFirestore, 
     setLogLevel,
-    doc,
-    setDoc,
-    collection,
-    query,
-    getDocs,
-    orderBy,
-    limit,
-    serverTimestamp // For tracking creation time
 } from 'firebase/firestore';
 import { 
     Search, 
@@ -32,22 +22,30 @@ import {
     LogOut, 
     LogIn, 
     BookOpen, 
-    Menu,
+    Menu, 
     RefreshCw,
-    Save
+    FileText, 
+    File, 
+    Bold, 
+    X, 
+    Menu as MenuIcon,
+    Save, 
+    ChevronDown 
 } from 'lucide-react';
 import './App.css'; 
 
-// --- 1. GLOBAL ENVIRONMENT SETUP & TYPE DECLARATIONS ---
+// PDF and DOCX Generation Imports
+import html2pdf from 'html2pdf.js'; 
+import { Document, Paragraph, TextRun, Packer } from "docx";
+import { saveAs } from 'file-saver'; 
+
+// --- 1. GLOBAL ENVIRONMENT SETUP ---
 declare const __app_id: string | undefined;
 declare const __firebase_config: string | undefined;
 declare const __initial_auth_token: string | undefined;
 
 const APP_DOMAIN = '@kiit.ac.in';
 
-const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-
-// This is the structure to read keys from the .env file (VITE_ prefix required by Vite)
 const firebaseConfig = {
     apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
     authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
@@ -60,11 +58,55 @@ const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial
 
 setLogLevel('debug'); 
 
-// --- 2. AUTH & FIREBASE CONTEXT/SETUP HOOK (FIXED) ---
+// --- GLOBAL INTERFACE DEFINITIONS ---
+interface Template {
+    id: string;
+    title: string;
+    description: string;
+    initialContent: string;
+}
+
+// Interfaces used by components defined later
+interface ProfileMenuProps {
+    user: User | null | undefined; 
+    onSignOut: () => void;
+    onLoginClick: () => void;
+}
+interface HeaderProps {
+    theme: 'light' | 'dark';
+    onThemeToggle: () => void;
+    user: User | null | undefined; 
+    onSignOut: () => void;
+    onLoginClick: () => void;
+    isAuthenticated: boolean | undefined; 
+    onMenuOpen: () => void;
+}
+interface ThemeToggleProps {
+    theme: 'light' | 'dark';
+    onToggle: () => void;
+}
+interface DocumentEditorProps {
+    template: Template;
+    onBack: () => void;
+}
+interface TemplateListProps {
+    onSelectTemplate: (template: Template) => void;
+}
+interface MobileSidebarProps {
+    activeView: string;
+    onSetActiveView: (view: 'list' | 'editor' | 'history') => void;
+    onClose: () => void;
+}
+interface MenuButtonProps {
+    onOpen: () => void;
+}
+interface SaveDropdownProps {
+    onDownload: (format: 'docx' | 'pdf') => void;
+}
+
+// --- 2. AUTH & FIREBASE CONTEXT/SETUP HOOK ---
 const useFirebase = () => {
     const [auth, setAuth] = useState<ReturnType<typeof getAuth> | null>(null);
-    const [db, setDb] = useState<Firestore | null>(null);
-    // undefined: Loading/Initial State; null: Logged Out; User: Logged In
     const [currentUser, setCurrentUser] = useState<User | null | undefined>(undefined); 
 
     useEffect(() => {
@@ -77,24 +119,21 @@ const useFirebase = () => {
         try {
             const app = initializeApp(firebaseConfig);
             const authInstance = getAuth(app);
-            const dbInstance = getFirestore(app);
+            getFirestore(app); 
 
             setAuth(authInstance);
-            setDb(dbInstance);
 
             let initialUserCheck = true;
 
             const unsubscribe = onAuthStateChanged(authInstance, (user) => {
                 setCurrentUser(user);
                 
-                // If the user state changes (e.g., after login/logout), we stop anonymous sign-in attempts
                 if (!initialUserCheck) {
                     return;
                 }
 
-                // If the app is loading AND no user is present, attempt initial sign-in (anonymous or custom token)
                 if (initialUserCheck && user === null) {
-                     const initialSignIn = async () => {
+                    const initialSignIn = async () => {
                         try {
                             if (initialAuthToken) {
                                 await signInWithCustomToken(authInstance, initialAuthToken);
@@ -105,13 +144,13 @@ const useFirebase = () => {
                             console.error("Firebase initial sign-in failed:", error);
                             setCurrentUser(null); 
                         }
-                        initialUserCheck = false; // Prevent repeated sign-in attempts
+                        initialUserCheck = false; 
                     };
                     initialSignIn();
                 }
 
                 if (user !== undefined) {
-                    initialUserCheck = false; // Stop initial attempts once we get a clear status
+                    initialUserCheck = false; 
                 }
             });
             
@@ -122,80 +161,61 @@ const useFirebase = () => {
         }
     }, []); 
 
-    const userId = currentUser ? currentUser.uid : `anon-${appId}-${crypto.randomUUID()}`;
-
-    return { auth, db, currentUser, userId, isLoading: currentUser === undefined };
+    return { auth, currentUser, isLoading: currentUser === undefined };
 };
 
-// --- 3. CORE LOGIC FUNCTIONS ---
+// --- 3. CORE LOGIC FUNCTIONS (DOCX & PDF GENERATION) ---
 
-interface DocumentData {
-    id: string;
-    title: string;
-    description: string;
-    content: string;
-    editor: 'Placeholder';
-    createdAt: any;
-    userId: string;
-}
+const downloadPDF = (element: HTMLElement, title: string) => {
+    if (!element) return;
+    
+    const fileName = `${title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.pdf`;
 
-const saveDocument = async (db: Firestore, userId: string, templateId: string, templateTitle: string, content: string): Promise<void> => {
-    if (!db || !userId) {
-        console.error("Database or User ID is unavailable.");
-        return;
-    }
+    const options = {
+        margin: 10,
+        filename: fileName,
+        image: { type: 'jpeg' as 'jpeg', quality: 0.98 }, 
+        html2canvas: { scale: 2 },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    };
 
-    try {
-        const docId = `${templateId}-${Date.now()}`;
-        // Path: /artifacts/{appId}/users/{userId}/documents/{docId}
-        const docRef = doc(db, 'artifacts', appId, 'users', userId, 'documents', docId);
-
-        const documentData: DocumentData = {
-            id: docId,
-            title: templateTitle,
-            description: `Generated from template ${templateId}`,
-            content: content,
-            editor: 'Placeholder', 
-            createdAt: serverTimestamp(),
-            userId: userId,
-        };
-
-        await setDoc(docRef, documentData);
-        console.log("Document saved successfully with ID:", docId);
-        alert(`Document "${templateTitle}" saved successfully! ID: ${docId}`);
-
-    } catch (e) {
-        console.error("Error saving document: ", e);
-        alert("Failed to save document. Check console for details.");
-    }
+    (html2pdf as any)().set(options).from(element).save();
+    alert(`Document "${title}" saved as PDF.`);
 };
 
-const fetchHistory = async (db: Firestore, userId: string): Promise<DocumentData[] | null> => {
-    if (!db || !userId) {
-        console.error("Database or User ID is unavailable for history fetch.");
-        return null;
-    }
-
+const downloadDOCX = async (contentHTML: string, title: string) => {
     try {
-        const documentsRef = collection(db, 'artifacts', appId, 'users', userId, 'documents');
-        // Fetch the last 10 documents by creation time
-        const q = query(documentsRef, orderBy('createdAt', 'desc'), limit(10));
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = contentHTML;
+        const textContent = tempDiv.textContent || contentHTML;
         
-        const querySnapshot = await getDocs(q);
-        const history: DocumentData[] = [];
-        querySnapshot.forEach((doc) => {
-            history.push(doc.data() as DocumentData);
+        const docxContent = textContent.split('\n').map(line => new Paragraph({
+            children: [
+                new TextRun({
+                    text: line,
+                }),
+            ],
+        }));
+
+        const doc = new Document({
+            sections: [{
+                children: docxContent,
+            }],
         });
-        
-        return history;
+
+        const buffer = await Packer.toBlob(doc);
+        const fileName = `${title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.docx`;
+        saveAs(buffer, fileName);
+        alert(`Document "${title}" saved as DOCX. Note: Formatting from the editor may be simplified in DOCX.`);
+
     } catch (e) {
-        console.error("Error fetching history: ", e);
-        return null;
+        console.error("DOCX generation failed:", e);
+        alert("Failed to generate DOCX document. Check console for details.");
     }
 };
 
 
-// --- 4. AUTH MODAL COMPONENT ---
+// --- 4. AUTH MODAL COMPONENT (UNCHANGED) ---
 
 interface AuthModalProps {
     auth: ReturnType<typeof getAuth> | null;
@@ -211,7 +231,6 @@ const AuthModal: React.FC<AuthModalProps> = ({ auth, isVisible, onClose }) => {
 
     useEffect(() => {
         if (isVisible) {
-            // Reset state when modal opens
             setIsLogin(true);
             setEmail('');
             setPassword('');
@@ -243,9 +262,8 @@ const AuthModal: React.FC<AuthModalProps> = ({ auth, isVisible, onClose }) => {
                 await createUserWithEmailAndPassword(auth, email, password);
                 console.log("Sign up successful.");
             }
-            onClose(); // Close modal on success
+            onClose();
         } catch (e: any) {
-            // Handle Firebase-specific errors
             setError(`Authentication Failed: ${e.code.replace('auth/', '').replace(/-/g, ' ')}`);
         }
     };
@@ -291,64 +309,150 @@ const AuthModal: React.FC<AuthModalProps> = ({ auth, isVisible, onClose }) => {
 };
 
 
+// --- SAVE DROPDOWN COMPONENT (CLEANED) ---
+
+const SaveDropdown: React.FC<SaveDropdownProps> = ({ onDownload }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const dropdownRef = useRef<HTMLDivElement>(null);
+
+    // Close dropdown when clicking outside
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+                setIsOpen(false);
+            }
+        };
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => {
+            document.removeEventListener("mousedown", handleClickOutside);
+        };
+    }, []);
+
+    const handleSelect = (format: 'docx' | 'pdf') => {
+        onDownload(format);
+        setIsOpen(false);
+    };
+
+    return (
+        <div className="save-dropdown-container" ref={dropdownRef}>
+            <button 
+                onClick={() => setIsOpen(!isOpen)} 
+                className="editor-action-btn main-save-btn"
+                aria-expanded={isOpen}
+            >
+                <Save className="icon-xs" style={{marginRight: '8px'}} />
+                Save As 
+                <ChevronDown className="icon-xs" style={{marginLeft: '4px'}} />
+            </button>
+
+            {isOpen && (
+                <div className="save-dropdown-menu">
+                    <button 
+                        onClick={() => handleSelect('pdf')} 
+                        className="dropdown-save-item save-pdf"
+                    >
+                        <File className="icon-xs" style={{marginRight: '8px'}} />
+                        PDF Document
+                    </button>
+                    <button 
+                        onClick={() => handleSelect('docx')} 
+                        className="dropdown-save-item save-docx"
+                    >
+                        <FileText className="icon-xs" style={{marginRight: '8px'}} />
+                        DOCX Document
+                    </button>
+                </div>
+            )}
+        </div>
+    );
+};
+
+
 // --- 5. DOCUMENT EDITOR COMPONENT ---
 
-interface DocumentEditorProps {
-    db: Firestore | null;
-    userId: string;
-    template: Template;
-    onViewHistory: () => void;
-    onBack: () => void;
-}
-
-const DocumentEditor: React.FC<DocumentEditorProps> = ({ db, userId, template, onViewHistory, onBack }) => {
-    // Placeholder for the Rich Text Editor content
+const DocumentEditor: React.FC<DocumentEditorProps> = ({ template, onBack }) => {
     const [content, setContent] = useState(template.initialContent); 
-    const [isSaving, setIsSaving] = useState(false);
+    const contentRef = useRef<HTMLDivElement>(null); 
 
-    const handleSave = async () => {
-        // Prevent saving if the user is anonymous
-        if (userId.startsWith('anon-')) {
-            alert("Please log in or sign up with a KIIT email to save documents.");
-            return;
+    const handleFormat = (command: string, value: string = '') => {
+        document.execCommand(command, false, value);
+        if (contentRef.current) {
+            setContent(contentRef.current.innerHTML);
         }
-        
-        setIsSaving(true);
-        if (db) {
-            await saveDocument(db, userId, template.id, template.title, content);
+    };
+
+    const handleContentChange = () => {
+        if (contentRef.current) {
+            setContent(contentRef.current.innerHTML);
         }
-        setIsSaving(false);
+    };
+    
+    const handleDownload = (format: 'docx' | 'pdf') => {
+        const element = contentRef.current;
+
+        if (format === 'pdf') {
+            if (!element) {
+                alert("Document content is not ready for PDF download. Try refreshing.");
+                return;
+            }
+            downloadPDF(element, template.title);
+        } else if (format === 'docx') {
+            downloadDOCX(content, template.title);
+        }
     };
 
     return (
         <div className="editor-container">
-            <div className="editor-header">
+            <div className="editor-title-bar">
                 <h2 className="editor-title">Editing: {template.title}</h2>
-                <div className="editor-actions">
-                    <button onClick={onBack} className="editor-action-btn editor-back-btn">
-                        &larr; Back to Templates
+                <button onClick={onBack} className="editor-action-btn editor-back-btn">
+                    &larr; Back to Templates
+                </button>
+            </div>
+            
+            <div className="toolbar-container">
+                <div className="toolbar-group">
+                    <button 
+                        onClick={(e) => { e.preventDefault(); handleFormat('bold'); }} 
+                        className="editor-action-btn format-btn"
+                        title="Bold Selected Text"
+                    >
+                        <Bold className="icon-xs" />
                     </button>
-                    <button onClick={onViewHistory} className="editor-action-btn editor-history-btn">
-                        View History
-                    </button>
-                    <button onClick={handleSave} disabled={isSaving || userId.startsWith('anon-')} className={`editor-action-btn editor-save-btn ${userId.startsWith('anon-') ? 'disabled-btn' : ''}`}>
-                        <Save className="icon-xs" style={{marginRight: '8px'}} />
-                        {isSaving ? 'Saving...' : 'Save Document'}
-                    </button>
+                    
+                    <select 
+                        onChange={(e) => {
+                            handleFormat('formatBlock', `<${e.target.value}>`);
+                        }} 
+                        className="editor-select-control"
+                        defaultValue="P"
+                        title="Change Text Size/Style"
+                    >
+                        <option value="P">Normal</option>
+                        <option value="H1">Heading 1</option>
+                        <option value="H2">Heading 2</option>
+                        <option value="H3">Heading 3</option>
+                    </select>
+
+                </div>
+                
+                {/* Unified Save Button */}
+                <div className="toolbar-group save-group">
+                    <SaveDropdown onDownload={handleDownload} />
                 </div>
             </div>
             
-            {/* Placeholder for the Rich Text Editor */}
-            <textarea
-                value={content}
-                onChange={(e) => setContent(e.target.value)}
-                className="rich-text-editor-placeholder"
-                placeholder="[Rich Text Editor Placeholder] Edit your document content here..."
+            <div 
+                ref={contentRef} 
+                className="rich-text-editor-content"
+                contentEditable="true"
+                dangerouslySetInnerHTML={{ __html: content }}
+                onInput={handleContentChange}
+                onBlur={handleContentChange}
             />
             
             <p className="editor-note">
-                NOTE: This textarea should be replaced by a Rich Text Editor (e.g., Quill, TinyMCE) 
-                to support formatting for your official documents.
+                NOTE: **Select the text first** before clicking the Bold button or changing the style dropdown (Normal/Heading) to apply formatting selectively.
             </p>
         </div>
     );
@@ -357,28 +461,18 @@ const DocumentEditor: React.FC<DocumentEditorProps> = ({ db, userId, template, o
 
 // --- 6. TEMPLATE LIST COMPONENT ---
 
-interface Template {
-    id: string;
-    title: string;
-    description: string;
-    initialContent: string;
-}
-
 const TEMPLATES: Template[] = [
-    { id: 'app_ltr', title: 'Appointment Letter Template', description: 'Standard format for new staff or faculty.', initialContent: "Dear [Name],\nWe are pleased to offer you the position of [Title] at the KIIT Activity Centre..." },
-    { id: 'leave_form', title: 'Leave Application Form', description: 'Internal form for staff leave requests.', initialContent: "This is a request for leave from [Date] to [Date]..." },
-    { id: 'equip_req', title: 'Equipment Request Form', description: 'Internal form for center supplies.', initialContent: "Item: [Item Name], Quantity: [Number], Justification: [Reason]..." },
+    { id: 'app_ltr', title: 'Appointment Letter Template', description: 'Standard format for new staff or faculty.', initialContent: "<p>Dear [Name],</p><p>We are pleased to offer you the position of [Title] at the KIIT Activity Centre...</p>" },
+    { id: 'leave_form', title: 'Leave Application Form', description: 'Internal form for staff leave requests.', initialContent: "<p>This is a request for leave from [Date] to [Date]...</p>" },
+    { id: 'equip_req', title: 'Equipment Request Form', description: 'Internal form for center supplies.', initialContent: "<p>Item: [Item Name], Quantity: [Number], Justification: [Reason]...</p>" },
 ];
 
-interface TemplateListProps {
-    onSelectTemplate: (template: Template) => void;
-}
 
 const TemplateList: React.FC<TemplateListProps> = ({ onSelectTemplate }) => (
     <div className="template-list-panel">
         <h2 className="panel-title">Available Templates</h2>
         <p className="panel-description">
-            Select a template below to open the editor, modify the content, save the new document, and download it.
+            Select a template below to open the editor, modify the content, and **download** the new document as DOCX or PDF.
         </p>
         
         <div className="template-grid">
@@ -395,28 +489,212 @@ const TemplateList: React.FC<TemplateListProps> = ({ onSelectTemplate }) => (
     </div>
 );
 
-// --- 7. MAIN APP COMPONENT ---
 
-type ActiveView = 'list' | 'editor' | 'history';
+// --- 7. UI COMPONENTS ---
+
+// Mobile Sidebar Component
+const MobileSidebar: React.FC<MobileSidebarProps> = ({ activeView, onSetActiveView, onClose }) => {
+    const handleNavigation = (view: 'list' | 'editor' | 'history', action: () => void = () => {}) => {
+        onSetActiveView(view);
+        action();
+        onClose(); 
+    };
+    
+    return (
+        <div className="mobile-sidebar-overlay" onClick={onClose}>
+            <aside className="mobile-sidebar" onClick={e => e.stopPropagation()}>
+                <div className="mobile-sidebar-header">
+                    <h2 className="sidebar-title">Navigation</h2>
+                    <button onClick={onClose} className="mobile-close-btn">
+                        <X className="icon-sm" />
+                    </button>
+                </div>
+                
+                <ul className="sidebar-list">
+                    <li>
+                        <a 
+                            href="#" 
+                            onClick={() => handleNavigation('list')} 
+                            className={`sidebar-link ${activeView === 'list' ? 'active' : ''}`}
+                        >
+                            <Menu className="icon-xs" style={{marginRight: '12px'}} />
+                            Template List
+                        </a>
+                    </li>
+                    <li>
+                        <a 
+                            href="#" 
+                            onClick={() => handleNavigation('history', () => alert("History Disabled"))} 
+                            className="sidebar-link disabled"
+                        >
+                            <Menu className="icon-xs" style={{marginRight: '12px'}} />
+                            History Logs (Disabled)
+                        </a>
+                    </li>
+                </ul>
+            </aside>
+        </div>
+    );
+};
+
+// Menu Button for Header (Mobile Only)
+const MenuButton: React.FC<MenuButtonProps> = ({ onOpen }) => (
+    <button onClick={onOpen} className="menu-toggle-btn mobile-only">
+        <MenuIcon className="icon-sm" />
+    </button>
+);
+
+
+// Header (Updated to include MenuButton and new title)
+const Header: React.FC<HeaderProps> = ({ theme, onThemeToggle, user, onSignOut, onLoginClick, isAuthenticated, onMenuOpen }) => (
+    <header className={`app-header ${theme}-theme`}>
+        <div className="header-content-wrapper">
+            
+            <div className="header-left">
+                <MenuButton onOpen={onMenuOpen} />
+                <div className="app-logo">UC</div>
+                <h1 className="app-title">Uni Doc</h1> {/* <-- FIXED: Title changed to Uni Doc */}
+            </div>
+
+            <div className="header-right">
+                <div className="search-container">
+                    <input type="search" placeholder="Search templates or documents..." className="search-input"/>
+                    <Search className="search-icon" />
+                </div>
+                
+                <ThemeToggle theme={theme} onToggle={onThemeToggle} />
+                
+                {isAuthenticated ? (
+                    <ProfileMenu user={user} onSignOut={onSignOut} onLoginClick={onLoginClick}/>
+                ) : (
+                    <button onClick={onLoginClick} className="login-signup-btn">
+                        Log In / Sign Up
+                    </button>
+                )}
+            </div>
+        </div>
+    </header>
+);
+
+// Footer Component (New)
+const Footer: React.FC = () => (
+    <footer className="app-footer">
+        <p className="footer-text">
+            &copy; 2025 University Doc Center. All rights reserved.
+        </p>
+    </footer>
+);
+
+// ProfileMenu component 
+const ProfileMenu: React.FC<ProfileMenuProps> = ({ user, onSignOut, onLoginClick }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const toggleMenu = () => setIsOpen(!isOpen);
+    const handleAction = (action: 'login' | 'signup' | 'details' | 'logout') => {
+        setIsOpen(false);
+        switch (action) {
+            case 'login':
+            case 'signup':
+                onLoginClick(); 
+                break;
+            case 'details':
+                console.log("[ACTION] Simulating viewing user details.");
+                break;
+            case 'logout':
+                onSignOut();
+                break;
+        }
+    };
+    const UserAvatar = () => (
+        <button
+            onClick={toggleMenu}
+            className="user-avatar-btn"
+            aria-expanded={isOpen}
+            aria-label="User menu"
+        >
+            <UserIcon className="icon-sm" />
+        </button>
+    );
+    return (
+        <div className="profile-menu-container">
+            <UserAvatar />
+            {isOpen && (
+                <div onBlur={() => setIsOpen(false)} tabIndex={0} className="profile-dropdown">
+                    {user && !user.isAnonymous ? (
+                        <div className="dropdown-content">
+                            <p className="dropdown-user-welcome">
+                                Welcome, {user.email}!
+                            </p>
+                            <button onClick={() => handleAction('details')} className="dropdown-item">
+                                <UserIcon className="icon-xs" style={{marginRight: '8px'}} />
+                                View Profile Details
+                            </button>
+                            <button onClick={() => handleAction('logout')} className="dropdown-item dropdown-logout-btn">
+                                <LogOut className="icon-xs" style={{marginRight: '8px'}} />
+                                Log Out
+                            </button>
+                        </div>
+                    ) : (
+                        <div className="dropdown-content">
+                            <button onClick={() => handleAction('login')} className="dropdown-item dropdown-login-btn">
+                                <LogIn className="icon-xs" style={{marginRight: '8px'}} />
+                                Log In
+                            </button>
+                            <button onClick={() => handleAction('signup')} className="dropdown-item">
+                                <BookOpen className="icon-xs" style={{marginRight: '8px'}} />
+                                Sign Up
+                            </button>
+                        </div>
+                    )}
+                </div>
+            )}
+        </div>
+    );
+};
+
+// Theme Toggle 
+const ThemeToggle: React.FC<ThemeToggleProps> = ({ theme, onToggle }) => (
+    <button
+        onClick={onToggle}
+        className="theme-toggle-btn"
+        aria-label={`Toggle to ${theme === 'light' ? 'dark' : 'light'} theme`}
+    >
+        {theme === 'light' ? (
+            <Moon className="icon-sm moon-icon" />
+        ) : (
+            <Sun className="icon-sm sun-icon" />
+        )}
+    </button>
+);
+
+
+// --- 8. MAIN APP COMPONENT ---
+
+type ActiveView = 'list' | 'editor' | 'history'; 
 
 function App() {
-    const { auth, db, currentUser, userId, isLoading } = useFirebase();
+    const { auth, currentUser, isLoading } = useFirebase(); 
     const [theme, setTheme] = useState<'light' | 'dark'>('light');
-    const [isAuthModalVisible, setIsAuthModalVisible] = useState(false); // Modal state
-    const [activeView, setActiveView] = useState<ActiveView>('list'); // Dashboard view state
-    const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null); // Template state
-    const [historyData, setHistoryData] = useState<DocumentData[] | null>(null); // History state
+    const [isAuthModalVisible, setIsAuthModalVisible] = useState(false); 
+    const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+    const [activeView, setActiveView] = useState<ActiveView>('list'); 
+    const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null); 
 
-    // Theme logic (attaching dark class to body)
     useEffect(() => {
         const root = window.document.documentElement;
         const body = window.document.body;
         
-        root.classList.remove('light', 'dark');
-        body.classList.remove('light', 'dark');
-
-        root.classList.add(theme);
-        body.classList.add(theme);
+        root.classList.remove('dark');
+        body.classList.remove('dark');
+        root.classList.add('light');
+        body.classList.add('light');
+        
+        if (theme === 'dark') {
+            root.classList.add('dark');
+            body.classList.add('dark');
+        } else {
+            root.classList.remove('dark');
+            body.classList.remove('dark');
+        }
     }, [theme]);
 
     const toggleTheme = () => {
@@ -428,19 +706,14 @@ function App() {
             try {
                 await signOut(auth);
             } catch (error) {
-                console.error("Sign out error:", error);
+                    console.error("Sign out error:", error);
             }
         }
     };
 
-    const handleViewHistory = async () => {
-        if (db && currentUser && !currentUser.isAnonymous) {
-            const data = await fetchHistory(db, currentUser.uid);
-            setHistoryData(data);
-            setActiveView('history');
-        } else {
-            alert("Please log in with your KIIT email to view document history.");
-        }
+    const handleViewHistory = () => {
+        alert("Document History functionality has been removed in this version. Documents are downloaded locally.");
+        setActiveView('history');
     };
 
     const handleSelectTemplate = (template: Template) => {
@@ -467,11 +740,7 @@ function App() {
         case 'editor':
             mainContent = selectedTemplate ? (
                 <DocumentEditor
-                    db={db}
-                    // Use currentUser.uid if authenticated, otherwise fallback to temporary userId
-                    userId={currentUser ? currentUser.uid : userId} 
                     template={selectedTemplate}
-                    onViewHistory={handleViewHistory}
                     onBack={() => setActiveView('list')}
                 />
             ) : null;
@@ -481,18 +750,9 @@ function App() {
                 <div className="history-panel">
                     <button onClick={() => setActiveView('list')} className="editor-action-btn editor-back-btn">&larr; Back to Templates</button>
                     <h2 className="panel-title">Document History</h2>
-                    {historyData && historyData.length > 0 ? (
-                        <ul className="history-list">
-                            {historyData.map((doc, index) => (
-                                <li key={index} className="history-item">
-                                    <strong>{doc.title}</strong> (Saved: {new Date(doc.createdAt?.seconds * 1000).toLocaleString()})
-                                    <p className="history-content-preview">{doc.content.substring(0, 100)}...</p>
-                                </li>
-                            ))}
-                        </ul>
-                    ) : (
-                        <p className="panel-description">No saved documents found in history. Log in with a KIIT email, save a document, and check back!</p>
-                    )}
+                    <p className="panel-description">
+                        **Document history saving has been disabled.** In this version, documents are downloaded directly to your computer as DOCX or PDF files.
+                    </p>
                 </div>
             );
             break;
@@ -502,7 +762,6 @@ function App() {
             break;
     }
 
-    // Determine if the user is truly logged in (not anonymous)
     const isAuthenticated = !!(currentUser && !currentUser.isAnonymous);
 
     return (
@@ -515,21 +774,28 @@ function App() {
                 onSignOut={handleSignOut} 
                 onLoginClick={() => setIsAuthModalVisible(true)} 
                 isAuthenticated={isAuthenticated} 
+                onMenuOpen={() => setIsMobileSidebarOpen(true)}
             />
+            
+            {isMobileSidebarOpen && (
+                <MobileSidebar 
+                    activeView={activeView}
+                    onSetActiveView={setActiveView}
+                    onClose={() => setIsMobileSidebarOpen(false)}
+                />
+            )}
 
-            {/* Auth Modal is rendered at the root level */}
             <AuthModal 
                 auth={auth} 
                 isVisible={isAuthModalVisible} 
                 onClose={() => setIsAuthModalVisible(false)} 
             />
 
-            {/* Main Content Area */}
             <main className="main-content-area">
                 <div className="main-grid">
                     
-                    {/* Sidebar / Navigation */}
-                    <aside className="sidebar">
+                    {/* Desktop Sidebar (Controlled by CSS to hide on mobile) */}
+                    <aside className="sidebar desktop-sidebar">
                         <h2 className="sidebar-title">Navigation</h2>
                         <ul className="sidebar-list">
                             <li>
@@ -541,181 +807,21 @@ function App() {
                             <li>
                                 <a href="#" onClick={handleViewHistory} className="sidebar-link">
                                     <Menu className="icon-xs" style={{marginRight: '12px'}} />
-                                    History Logs
+                                    History Logs (Disabled)
                                 </a>
                             </li>
                         </ul>
                     </aside>
 
-                    {/* Dashboard Content Panel - Renders the active view */}
                     <section className="dashboard-panel">
                         {mainContent}
-                        
-                         {/* REMOVED: The entire Current Status (Debug Info) block */}
-
                     </section>
                 </div>
             </main>
-        </div>
-    );
-}
-
-// --- 8. UI COMPONENTS ---
-
-// Header (Updated to use isAuthenticated prop)
-interface HeaderProps {
-    theme: 'light' | 'dark';
-    onThemeToggle: () => void;
-    user: User | null | undefined; 
-    onSignOut: () => void;
-    onLoginClick: () => void;
-    isAuthenticated: boolean | undefined; 
-}
-const Header: React.FC<HeaderProps> = ({ theme, onThemeToggle, user, onSignOut, onLoginClick, isAuthenticated }) => (
-    <header className={`app-header ${theme}-theme`}>
-        <div className="header-content-wrapper">
             
-            <div className="header-left">
-                <div className="app-logo">UC</div>
-                <h1 className="app-title">University Doc Center</h1>
-            </div>
-
-            <div className="header-right">
-                <div className="search-container">
-                    <input type="search" placeholder="Search templates or documents..." className="search-input"/>
-                    <Search className="search-icon" />
-                </div>
-                
-                <ThemeToggle theme={theme} onToggle={onThemeToggle} />
-                
-                {/* FIX: Conditional rendering to show EITHER the Button OR the Icon */}
-                {isAuthenticated ? (
-                    // 1. SHOW ONLY ICON IF AUTHENTICATED
-                    <ProfileMenu user={user} onSignOut={onSignOut} onLoginClick={onLoginClick}/>
-                ) : (
-                    // 2. SHOW ONLY BUTTON IF NOT AUTHENTICATED
-                    <button onClick={onLoginClick} className="login-signup-btn">
-                        Log In / Sign Up
-                    </button>
-                )}
-            </div>
-        </div>
-    </header>
-);
-
-// ProfileMenu (Updated to display user email)
-interface ProfileMenuProps {
-    user: User | null | undefined; 
-    onSignOut: () => void;
-    onLoginClick: () => void;
-}
-const ProfileMenu: React.FC<ProfileMenuProps> = ({ user, onSignOut, onLoginClick }) => {
-    const [isOpen, setIsOpen] = useState(false);
-
-    const toggleMenu = () => setIsOpen(!isOpen);
-
-    const handleAction = (action: 'login' | 'signup' | 'details' | 'logout') => {
-        setIsOpen(false);
-        switch (action) {
-            case 'login':
-            case 'signup':
-                onLoginClick(); 
-                break;
-            case 'details':
-                console.log("[ACTION] Simulating viewing user details.");
-                break;
-            case 'logout':
-                onSignOut();
-                break;
-        }
-    };
-
-    const UserAvatar = () => (
-        <button
-            onClick={toggleMenu}
-            className="user-avatar-btn"
-            aria-expanded={isOpen}
-            aria-label="User menu"
-        >
-            <UserIcon className="icon-sm" />
-        </button>
-    );
-
-    return (
-        <div className="profile-menu-container">
-            {/* The avatar button is now always rendered here if this component is used */}
-            <UserAvatar />
-            
-            {isOpen && (
-                <div 
-                    onBlur={() => setIsOpen(false)}
-                    tabIndex={0} 
-                    className="profile-dropdown"
-                >
-                    {/* Check if user is authenticated (not null AND not anonymous) */}
-                    {user && !user.isAnonymous ? (
-                        <div className="dropdown-content">
-                            <p className="dropdown-user-welcome">
-                                Welcome, {user.email}!
-                            </p>
-                            <button
-                                onClick={() => handleAction('details')}
-                                className="dropdown-item"
-                            >
-                                <UserIcon className="icon-xs" style={{marginRight: '8px'}} />
-                                View Profile Details
-                            </button>
-                            <button
-                                onClick={() => handleAction('logout')}
-                                className="dropdown-item dropdown-logout-btn"
-                            >
-                                <LogOut className="icon-xs" style={{marginRight: '8px'}} />
-                                Log Out
-                            </button>
-                        </div>
-                    ) : (
-                        // Show Login/Signup options if not authenticated
-                        <div className="dropdown-content">
-                            <button
-                                onClick={() => handleAction('login')}
-                                className="dropdown-item dropdown-login-btn"
-                            >
-                                <LogIn className="icon-xs" style={{marginRight: '8px'}} />
-                                Log In
-                            </button>
-                            <button
-                                onClick={() => handleAction('signup')}
-                                className="dropdown-item"
-                            >
-                                <BookOpen className="icon-xs" style={{marginRight: '8px'}} />
-                                Sign Up
-                            </button>
-                        </div>
-                    )}
-                </div>
-            )}
+            <Footer />
         </div>
     );
-};
-
-// Theme Toggle (Unchanged)
-interface ThemeToggleProps {
-    theme: 'light' | 'dark';
-    onToggle: () => void;
 }
-const ThemeToggle: React.FC<ThemeToggleProps> = ({ theme, onToggle }) => (
-    <button
-        onClick={onToggle}
-        className="theme-toggle-btn"
-        aria-label={`Toggle to ${theme === 'light' ? 'dark' : 'light'} theme`}
-    >
-        {theme === 'light' ? (
-            <Moon className="icon-sm moon-icon" />
-        ) : (
-            <Sun className="icon-sm sun-icon" />
-        )}
-    </button>
-);
-
 
 export default App;
