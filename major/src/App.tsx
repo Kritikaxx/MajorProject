@@ -80,6 +80,8 @@ interface HeaderProps {
     onLoginClick: () => void;
     isAuthenticated: boolean | undefined; 
     onMenuOpen: () => void;
+    searchQuery: string; 
+    onSearchChange: (query: string) => void;
 }
 interface ThemeToggleProps {
     theme: 'light' | 'dark';
@@ -91,6 +93,7 @@ interface DocumentEditorProps {
 }
 interface TemplateListProps {
     onSelectTemplate: (template: Template) => void;
+    templates: Template[];
 }
 interface MobileSidebarProps {
     activeView: string;
@@ -468,7 +471,7 @@ const TEMPLATES: Template[] = [
 ];
 
 
-const TemplateList: React.FC<TemplateListProps> = ({ onSelectTemplate }) => (
+const TemplateList: React.FC<TemplateListProps> = ({ onSelectTemplate, templates }) => (
     <div className="template-list-panel">
         <h2 className="panel-title">Available Templates</h2>
         <p className="panel-description">
@@ -476,7 +479,7 @@ const TemplateList: React.FC<TemplateListProps> = ({ onSelectTemplate }) => (
         </p>
         
         <div className="template-grid">
-            {TEMPLATES.map((card) => (
+            {templates.map((card) => (
                 <div key={card.id} className="template-card">
                     <h3 className="card-title">{card.title}</h3>
                     <p className="card-description">{card.description}</p>
@@ -545,20 +548,26 @@ const MenuButton: React.FC<MenuButtonProps> = ({ onOpen }) => (
 );
 
 
-// Header (Updated to include MenuButton and new title)
-const Header: React.FC<HeaderProps> = ({ theme, onThemeToggle, user, onSignOut, onLoginClick, isAuthenticated, onMenuOpen }) => (
+// Header (Updated to include MenuButton)
+const Header: React.FC<HeaderProps> = ({ theme, onThemeToggle, user, onSignOut, onLoginClick, isAuthenticated, onMenuOpen, searchQuery, onSearchChange }) => (
     <header className={`app-header ${theme}-theme`}>
         <div className="header-content-wrapper">
             
             <div className="header-left">
                 <MenuButton onOpen={onMenuOpen} />
                 <div className="app-logo">UC</div>
-                <h1 className="app-title">Uni Doc</h1> {/* <-- FIXED: Title changed to Uni Doc */}
+                <h1 className="app-title">Uni Doc</h1> {/* FIXED: Title changed */}
             </div>
 
             <div className="header-right">
                 <div className="search-container">
-                    <input type="search" placeholder="Search templates or documents..." className="search-input"/>
+                    <input 
+                        type="search" 
+                        placeholder="Search templates or documents..." 
+                        className="search-input"
+                        value={searchQuery}
+                        onChange={(e) => onSearchChange(e.target.value)}
+                    />
                     <Search className="search-icon" />
                 </div>
                 
@@ -580,7 +589,7 @@ const Header: React.FC<HeaderProps> = ({ theme, onThemeToggle, user, onSignOut, 
 const Footer: React.FC = () => (
     <footer className="app-footer">
         <p className="footer-text">
-            &copy; 2025 University Doc Center. All rights reserved.
+            &copy; 2025 Uni Doc. All rights reserved.
         </p>
     </footer>
 );
@@ -678,6 +687,24 @@ function App() {
     const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
     const [activeView, setActiveView] = useState<ActiveView>('list'); 
     const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null); 
+    
+    // 🔍 Search state
+    const [searchQuery, setSearchQuery] = useState('');
+    const [filteredTemplates, setFilteredTemplates] = useState<Template[]>(TEMPLATES);
+
+    const handleSearch = (query: string) => {
+        setSearchQuery(query);
+        if (!query.trim()) {
+            setFilteredTemplates(TEMPLATES); 
+            return;
+        }
+
+        const results = TEMPLATES.filter((template) =>
+            template.title.toLowerCase().includes(query.toLowerCase())
+        );
+        setFilteredTemplates(results);
+    };
+
 
     useEffect(() => {
         const root = window.document.documentElement;
@@ -758,7 +785,12 @@ function App() {
             break;
         case 'list':
         default:
-            mainContent = <TemplateList onSelectTemplate={handleSelectTemplate} />;
+            mainContent = (
+                <TemplateList
+                    onSelectTemplate={handleSelectTemplate}
+                    templates={filteredTemplates} // Use filtered templates here
+                />
+            );
             break;
     }
 
@@ -775,6 +807,8 @@ function App() {
                 onLoginClick={() => setIsAuthModalVisible(true)} 
                 isAuthenticated={isAuthenticated} 
                 onMenuOpen={() => setIsMobileSidebarOpen(true)}
+                searchQuery={searchQuery}
+                onSearchChange={handleSearch}
             />
             
             {isMobileSidebarOpen && (
