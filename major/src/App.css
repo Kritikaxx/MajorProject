@@ -1,13 +1,15 @@
 /* --- Global Reset and Setup --- */
 :root {
-    --color-primary: #4f46e5; /* Indigo 600 */
+    --color-primary: #4f46e5; /* Indigo 600 (DOCX/Primary Action) */
     --color-primary-dark: #6366f1; /* Indigo 500 */
     --color-text-light: #111827; /* Gray 900 */
     --color-text-dark: #F3F4F6; /* Gray 100 */
-    --color-bg-light: #F9FAFB; /* Gray 50 */
+    --color-bg-light: #F9FAFB; /* Gray 50 (Main App Background) */
     --color-bg-dark: #111827; /* Gray 900 */
-    --color-card-light: #FFFFFF;
+    --color-card-light: #FFFFFF; /* Card/Panel Background */
     --color-card-dark: #1F2937; /* Gray 800 */
+    --color-save-pdf: #991b1b; /* Maroon Red (Toned Down) */
+    --color-save-pdf-hover: #b91c1c; /* Darker Red */
     --transition-speed: 0.3s;
 }
 
@@ -15,12 +17,13 @@ body {
     margin: 0;
     font-family: 'Inter', sans-serif;
     transition: background-color var(--transition-speed), color var(--transition-speed);
-    /* Ensure horizontal scroll is hidden */
     overflow-x: hidden; 
 }
 
 .app-container {
     min-height: 100vh;
+    display: flex;
+    flex-direction: column;
     width: 100%;
 }
 
@@ -34,7 +37,6 @@ body {
     color: var(--color-text-dark);
 }
 
-/* Fallback for the app container */
 .app-header, .sidebar, .dashboard-panel {
     transition: background-color var(--transition-speed), color var(--transition-speed), box-shadow var(--transition-speed);
 }
@@ -46,21 +48,17 @@ body {
 }
 
 /* --- Centralized Content Containers --- */
-
-/* The header container that stretches across the whole screen */
 .app-header {
     width: 100%; 
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
     position: sticky;
     top: 0;
     z-index: 40;
 }
 
-/* FIX: This inner wrapper controls the alignment of the header content */
 .header-content-wrapper {
-    /* Set desired max width for content alignment */
     max-width: 1600px; 
-    margin: 0 auto; /* Center it */
+    margin: 0 auto; 
     padding-left: 24px; 
     padding-right: 24px; 
     display: flex;
@@ -70,13 +68,12 @@ body {
     padding-bottom: 12px;
 }
 
-/* FIX: The main content area where the grid lives */
 .main-content-area {
-    /* Set desired max width for content alignment */
     max-width: 1600px; 
-    margin: 0 auto; /* Center it */
+    margin: 0 auto; 
     padding: 32px 24px;
     display: block; 
+    flex-grow: 1; 
 }
 
 @media (min-width: 1024px) { 
@@ -87,7 +84,7 @@ body {
 }
 
 
-/* --- Loading Screen --- */
+/* --- Loading Screen (Unchanged) --- */
 .loading-screen {
     display: flex;
     justify-content: center;
@@ -113,8 +110,36 @@ body {
 .header-left {
     display: flex;
     align-items: center;
-    gap: 16px;
+    /* FIX: Reduced gap to reclaim space on small/tablet screens */
+    gap: 10px; 
 }
+
+/* Menu Button is hidden on desktop size */
+.menu-toggle-btn {
+    padding: 8px;
+    border-radius: 8px;
+    background: none;
+    color: var(--color-text-light); 
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: background-color 0.15s;
+}
+.menu-toggle-btn:hover {
+    background-color: #e5e7eb;
+}
+.dark .menu-toggle-btn {
+    color: var(--color-text-dark); 
+}
+.dark .menu-toggle-btn:hover {
+    background-color: #374151;
+}
+.menu-toggle-btn.mobile-only {
+    display: block;
+}
+@media (min-width: 1024px) {
+    .menu-toggle-btn.mobile-only { display: none; } 
+}
+
 .app-logo {
     width: 40px;
     height: 40px;
@@ -140,10 +165,11 @@ body {
 .header-right {
     display: flex;
     align-items: center;
-    gap: 12px;
+    /* FIX: Ensure minimal space between critical icons/buttons */
+    gap: 8px; 
 }
 @media (min-width: 640px) {
-    .header-right { gap: 24px; }
+    .header-right { gap: 16px; } /* Slightly more space on tablet */
 }
 
 /* --- Search Bar --- */
@@ -152,10 +178,20 @@ body {
     display: none; 
 }
 @media (min-width: 640px) {
-    .search-container { display: block; }
+    .search-container { 
+        display: block;
+        /* FIX: Ensure search bar doesn't take too much space on small screens */
+        width: 180px; 
+    }
 }
+@media (min-width: 768px) {
+    .search-container {
+        width: 256px; 
+    }
+}
+
 .search-input {
-    width: 256px;
+    width: 100%; /* Take full container width */
     padding: 8px 16px 8px 40px;
     border: 1px solid #d1d5db; 
     border-radius: 9999px; 
@@ -184,7 +220,7 @@ body {
     color: #9ca3af; 
 }
 
-/* --- Buttons/Toggles/Icons --- */
+/* --- Buttons/Toggles/Icons (Unchanged) --- */
 .user-avatar-btn, .theme-toggle-btn {
     padding: 8px;
     border-radius: 9999px;
@@ -226,7 +262,7 @@ body {
 .moon-icon { color: var(--color-primary); }
 .sun-icon { color: #facc15; }
 
-/* --- Profile Menu Dropdown --- */
+/* --- Profile Menu Dropdown (Unchanged) --- */
 .profile-menu-container {
     position: relative;
 }
@@ -260,7 +296,7 @@ body {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    color: var(--color-primary); /* Use primary color for username/email */
+    color: var(--color-primary); 
     margin-bottom: 8px;
     padding-bottom: 8px;
     border-bottom: 1px solid #e5e7eb;
@@ -309,7 +345,7 @@ body {
     color: #f87171; 
 }
 
-/* --- Auth Modal --- */
+/* --- Auth Modal (Unchanged) --- */
 .modal-overlay {
     position: fixed;
     top: 0;
@@ -409,7 +445,7 @@ body {
     display: block; 
     padding: 32px 24px; 
 }
-/* Ensure the grid rows are explicitly stretched in the area where the sidebar lives */
+
 .main-grid {
     display: grid;
     grid-template-columns: 1fr;
@@ -419,8 +455,8 @@ body {
 }
 @media (min-width: 1024px) { 
     .main-grid {
-        grid-template-columns: 1.2fr 3.5fr; 
-        align-items: stretch;
+        grid-template-columns: 280px 1fr; 
+        align-items: flex-start;
     }
 }
 
@@ -428,9 +464,19 @@ body {
 .sidebar {
     padding: 24px;
     border-radius: 12px;
-    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-    height: 100%; /* Ensures height stretches to full grid area */
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); 
 }
+
+/* FIX: Sidebar is hidden by default on mobile */
+.desktop-sidebar {
+    display: none;
+}
+@media (min-width: 1024px) {
+    .desktop-sidebar {
+        display: block;
+    }
+}
+
 .sidebar-title {
     font-size: 1.25rem;
     font-weight: 600;
@@ -467,12 +513,50 @@ body {
     color: var(--color-primary-dark);
 }
 
-/* --- Dashboard Panel --- */
+/* --- Mobile Sidebar Overlay (Unchanged) --- */
+.mobile-sidebar-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.6);
+    z-index: 90;
+}
+.mobile-sidebar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 80%;
+    max-width: 300px;
+    height: 100%;
+    background-color: var(--color-card-light);
+    padding: 24px;
+    box-shadow: 4px 0 10px rgba(0, 0, 0, 0.2);
+}
+.dark .mobile-sidebar {
+    background-color: var(--color-card-dark);
+}
+.mobile-sidebar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 32px;
+}
+.mobile-close-btn {
+    background: none;
+    border: none;
+    color: var(--color-text-light);
+    cursor: pointer;
+    padding: 5px;
+}
+.dark .mobile-close-btn { color: var(--color-text-dark); }
+
+/* --- Dashboard Panel (Unchanged) --- */
 .dashboard-panel {
-    padding: 32px;
+    padding: 24px; 
     border-radius: 12px;
-    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-    height: 100%; /* Ensures height stretches to full grid area */
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); 
 }
 .panel-title {
     font-size: 1.5rem;
@@ -488,7 +572,7 @@ body {
 }
 .dark .panel-description { color: #9ca3af; }
 
-/* Template Grid */
+/* Template Grid (Unchanged) */
 .template-grid {
     display: grid;
     grid-template-columns: 1fr;
@@ -500,7 +584,6 @@ body {
         grid-template-columns: repeat(2, 1fr);
     }
 }
-
 .template-card {
     border: 1px solid #e5e7eb; 
     padding: 20px;
@@ -515,7 +598,6 @@ body {
 .template-card:hover {
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
 }
-
 .card-title {
     font-size: 1.125rem;
     font-weight: 600;
@@ -544,47 +626,12 @@ body {
     background-color: var(--color-primary);
 }
 
-/* User Status Box */
-.user-status-box {
-    margin-top: 40px;
-    padding-top: 16px;
-    border-top: 1px solid #e5e7eb; 
-}
-.dark .user-status-box { border-top-color: #374151; }
-
-.user-status-title {
-    font-size: 1.125rem;
-    font-weight: 600;
-    color: var(--color-text-light);
-}
-.dark .user-status-title { color: var(--color-text-dark); }
-
-.user-status-text {
-    font-size: 0.875rem;
-    color: #4b5563; 
-}
-.dark .user-status-text { color: #9ca3af; }
-
-.user-id-display {
-    font-family: monospace;
-    font-size: 0.75rem;
-    margin-left: 8px;
-    padding: 4px 8px;
-    background-color: #e5e7eb; 
-    border-radius: 4px;
-    word-wrap: break-word;
-    display: inline-block;
-}
-.dark .user-id-display {
-    background-color: #374151; 
-}
-
 /* --- Editor View Specifics --- */
 .editor-container {
     display: flex;
     flex-direction: column;
 }
-.editor-header {
+.editor-title-bar {
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -594,72 +641,231 @@ body {
     font-size: 1.5rem;
     font-weight: bold;
 }
-.editor-actions {
-    display: flex;
-    gap: 10px;
-}
-.editor-action-btn {
-    padding: 8px 12px;
-    border-radius: 6px;
-    font-size: 0.875rem;
-    font-weight: 500;
-    cursor: pointer;
-    transition: background-color 0.15s, opacity 0.15s;
-    border: none;
-    display: flex;
-    align-items: center;
-}
 .editor-back-btn {
     background-color: #e5e7eb;
     color: #374151;
+    border: 1px solid #d1d5db;
+    padding: 6px 10px;
 }
-.editor-history-btn {
-    background-color: #eef2ff;
-    color: var(--color-primary);
+.dark .editor-back-btn {
+    background-color: #374151;
+    color: #d1d5db;
+    border-color: #4b5563;
 }
-.editor-save-btn {
-    background-color: #10b981; /* Green 500 */
-    color: white;
-}
-.editor-save-btn:hover {
-    background-color: #059669; /* Green 600 */
-}
-.disabled-btn {
-    opacity: 0.6;
-    cursor: not-allowed;
-    background-color: #9ca3af !important; /* Gray 400 */
+.dark .editor-back-btn:hover {
+    background-color: #4b5563;
 }
 
-.rich-text-editor-placeholder {
-    width: 100%;
-    min-height: 500px;
-    padding: 20px;
-    border: 1px solid #e5e7eb;
+/* 🚨 Toolbar Container (Cleaned up) */
+.toolbar-container {
+    display: flex;
+    flex-wrap: wrap; 
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    margin-bottom: 16px;
     border-radius: 8px;
-    font-family: monospace;
-    font-size: 1rem;
-    resize: vertical;
+    background-color: #f3f4f6; 
+    border: 1px solid #e5e7eb;
+    gap: 10px;
 }
-.dark .rich-text-editor-placeholder {
+.dark .toolbar-container {
     background-color: #374151;
     border-color: #4b5563;
-    color: white;
-}
-.editor-note {
-    margin-top: 15px;
-    padding: 10px;
-    background-color: #fef3c7; /* Amber 100 */
-    border-left: 4px solid #f59e0b; /* Amber 500 */
-    font-size: 0.9rem;
-    color: #78350f; /* Amber 900 */
-}
-.dark .editor-note {
-    background-color: #4d3300;
-    border-color: #d97706;
-    color: #fef3c7;
 }
 
-/* History View */
+.toolbar-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.editor-select-control {
+    padding: 6px 10px;
+    border-radius: 6px;
+    border: 1px solid #d1d5db;
+    background-color: white;
+    font-size: 0.875rem;
+    cursor: pointer;
+    /* FIX: Ensure select box text is always black for clarity */
+    color: #000000 !important; 
+}
+/* Ensure dark theme doesn't override the black text */
+.dark .editor-select-control {
+    background-color: #1f2937;
+    border-color: #4b5563;
+    color: #000000; /* Overridden by the !important above, but good practice */
+}
+.dark .editor-select-control option {
+    background-color: var(--color-card-dark);
+    color: var(--color-text-dark);
+}
+.light .editor-select-control option {
+    background-color: white;
+    color: black;
+}
+
+.format-btn {
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    justify-content: center;
+    background-color: white;
+    border: 1px solid #d1d5db;
+    color: #4b5563;
+    border-radius: 6px;
+}
+.dark .format-btn {
+    background-color: #1f2937;
+    color: #d1d5db;
+    border-color: #4b5563;
+}
+.format-btn:hover {
+    background-color: #e5e7eb;
+}
+.format-btn:focus {
+    outline: none;
+    box-shadow: 0 0 0 2px var(--color-primary-dark);
+}
+.format-btn.active-format {
+    background-color: var(--color-primary);
+    color: white;
+}
+
+/* --- Save Dropdown Styles --- */
+.save-dropdown-container {
+    position: relative;
+    display: inline-block;
+}
+
+.main-save-btn {
+    background-color: var(--color-primary); 
+    color: white;
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-weight: 600;
+    transition: background-color 0.15s;
+    border: none; 
+    display: flex;
+    align-items: center;
+}
+.main-save-btn:hover {
+    background-color: var(--color-primary-dark);
+}
+
+.save-dropdown-menu {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    margin-top: 4px;
+    background-color: white;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+    border-radius: 6px;
+    overflow: hidden;
+    z-index: 20;
+    min-width: 150px;
+    display: flex;
+    flex-direction: column;
+}
+.dark .save-dropdown-menu {
+    background-color: var(--color-card-dark);
+    border: 1px solid #374151;
+}
+
+.dropdown-save-item {
+    padding: 10px 16px;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    font-size: 0.9rem;
+    border: none;
+    background: none;
+    cursor: pointer;
+    color: var(--color-text-light);
+    transition: background-color 0.15s;
+}
+.dark .dropdown-save-item {
+    color: var(--color-text-dark);
+}
+
+.dropdown-save-item:hover {
+    background-color: #eef2ff;
+}
+.dark .dropdown-save-item:hover {
+    background-color: #374151;
+}
+
+/* Specific save button colors (Toned down) */
+.dropdown-save-item.save-pdf {
+    color: var(--color-save-pdf); 
+}
+.dropdown-save-item.save-pdf:hover {
+    background-color: #fee2e2;
+}
+
+.dropdown-save-item.save-docx {
+    color: var(--color-primary);
+}
+.dropdown-save-item.save-docx:hover {
+    background-color: #eef2ff;
+}
+
+
+/* 🚨 NEW: Rich Text Content Area (The "Paper" Look) */
+.rich-text-editor-content {
+    min-height: 500px; 
+    padding: 30px; 
+    border: 1px solid #ccc;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08); 
+    border-radius: 8px;
+    outline: none; 
+    overflow: auto;
+    
+    background-color: white; 
+    color: black; 
+    line-height: 1.6;
+    font-family: 'Arial', sans-serif;
+}
+
+/* Ensure formatting elements look correct inside the editor */
+.rich-text-editor-content h1 { font-size: 2em; margin: 0.67em 0; }
+.rich-text-editor-content h2 { font-size: 1.5em; margin: 0.75em 0; }
+.rich-text-editor-content h3 { font-size: 1.17em; margin: 0.83em 0; }
+.rich-text-editor-content p { margin: 1em 0; }
+.rich-text-editor-content b, .rich-text-editor-content strong { font-weight: bold; }
+
+/* NOTE: Dark theme users still need a white page for the editor */
+.dark .rich-text-editor-content {
+    background-color: white;
+    color: black;
+    border-color: #9ca3af;
+}
+
+/* --- Footer --- */
+.app-footer {
+    padding: 16px 24px;
+    border-top: 1px solid #e5e7eb;
+    margin-top: 32px; 
+    text-align: center;
+    background-color: var(--color-card-light);
+    width: 100%;
+}
+.dark .app-footer {
+    background-color: var(--color-card-dark);
+    border-top-color: #374151;
+}
+.footer-text {
+    font-size: 0.875rem;
+    color: #6b7280;
+    max-width: 1600px;
+    margin: 0 auto;
+}
+.dark .footer-text {
+    color: #9ca3af;
+}
+
+/* --- History View (Unchanged) --- */
 .history-panel {
     display: flex;
     flex-direction: column;
